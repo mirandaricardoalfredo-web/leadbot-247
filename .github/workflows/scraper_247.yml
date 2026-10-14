@@ -1,0 +1,42 @@
+name: Supercomputadora LeadBot 24/7
+
+on:
+  # Se ejecuta automáticamente todos los días a las 05:00 UTC (02:00 AM Argentina)
+  # mientras tu ordenador personal está completamente apagado
+  schedule:
+    - cron: '0 5 * * *'
+  # Permite que lo enciendas manualmente cuando quieras con un solo clic en GitHub
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  run-leadbot:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 📥 Clonar repositorio
+        uses: actions/checkout@v4
+
+      - name: 🐍 Configurar Python en la Nube
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: 🚀 Ejecutar Robot Extractor de Leads
+        run: |
+          python scraper.py
+
+      - name: 💾 Guardar y Actualizar Lista en el Repositorio
+        run: |
+          git config --global user.name "Supercloud-LeadBot"
+          git config --global user.email "bot@supercloud.local"
+          git add leads_inmobiliarias_espana.csv
+          git diff --quiet && git diff --staged --quiet || (git commit -m "Actualizacion automatica 24/7 de leads [$(date -u +'%Y-%m-%d %H:%M')]" && git push)
+
+      - name: 📦 Generar Archivo Descargable (Artefacto)
+        uses: actions/upload-artifact@v4
+        with:
+          name: leads-inmobiliarias-espana
+          path: leads_inmobiliarias_espana.csv
