@@ -6,8 +6,8 @@ ROBOT AUTÓNOMO 24/7 - EXTRACTOR CUMULATIVO Y GENERADOR DE OFERTAS COMERCIALES
 Ejecución autónoma programada en la nube (GitHub Actions).
 1. Acumula y deduplica leads día a día sin perder datos previos.
 2. Extrae agencias inmobiliarias en España (Madrid, Barcelona, Valencia, etc.).
-3. Analiza la demanda y genera automáticamente ofertas y cartas de venta listas
-   para enviar por WhatsApp, Correo o LinkedIn con enlaces de cobro PayPal.
+3. Genera automáticamente ofertas y propuestas comerciales con enlace directo
+   a tu pasarela de cobro PayPal oficial en dólares (US$ 45,00).
 """
 
 import urllib.request
@@ -20,6 +20,9 @@ import os
 
 CIUDADES = ["Madrid", "Barcelona", "Valencia", "Sevilla", "Málaga", "Bilbao"]
 
+# Tu enlace oficial de cobro en PayPal ($45 USD)
+PAYPAL_PAYMENT_LINK = "https://www.paypal.com/ncp/payment/BKT7UTA7HA5QS"
+
 OVERPASS_SERVERS = [
     "https://overpass-api.de/api/interpreter",
     "https://lz4.overpass-api.de/api/interpreter",
@@ -27,7 +30,6 @@ OVERPASS_SERVERS = [
 ]
 
 def cargar_leads_existentes(ruta_archivo="leads_inmobiliarias_espana.csv"):
-    """Carga los leads acumulados de ejecuciones anteriores."""
     if not os.path.exists(ruta_archivo):
         return []
     leads = []
@@ -42,7 +44,6 @@ def cargar_leads_existentes(ruta_archivo="leads_inmobiliarias_espana.csv"):
     return leads
 
 def extraer_leads_ciudad(ciudad):
-    """Consulta Overpass con rotación de servidores y reintentos."""
     query = f"""
     [out:json][timeout:25];
     area["name"="{ciudad}"]["admin_level"~"8|6|4"]->.area_busqueda;
@@ -125,7 +126,7 @@ def procesar_leads():
             })
         time.sleep(1)
 
-    # Consolidar y deduplicar por (Nombre + Ciudad)
+    # Consolidar y deduplicar
     registro_map = {}
     for l in leads_previos:
         clave = (l.get("Nombre", "").strip().lower(), l.get("Ciudad", "").strip().lower())
@@ -139,7 +140,7 @@ def procesar_leads():
             agregados += 1
 
     total_consolidados = list(registro_map.values())
-    print(f"[+] Nuevos leads incorporados hoy: {agregados}. Total acumulado: {len(total_consolidados)}.")
+    print(f"[+] Nuevos leads incorporados: {agregados}. Total acumulado: {len(total_consolidados)}.")
     return total_consolidados
 
 def exportar_csv(leads, ruta_archivo="leads_inmobiliarias_espana.csv"):
@@ -157,14 +158,12 @@ def exportar_csv(leads, ruta_archivo="leads_inmobiliarias_espana.csv"):
         writer = csv.DictWriter(f, fieldnames=campos)
         writer.writeheader()
         for row in leads:
-            # Asegurar compatibilidad de campos
             clean_row = {c: row.get(c, "No especificado") for c in campos}
             writer.writerow(clean_row)
 
     print(f"[+] Base de datos CSV consolidada: {ruta_archivo}")
 
 def generar_ofertas_y_demandas(leads, ruta_md="ofertas_y_demandas.md"):
-    """Genera automáticamente cartas de venta y propuestas comerciales listas para monetizar."""
     if not leads:
         return
 
@@ -173,7 +172,7 @@ def generar_ofertas_y_demandas(leads, ruta_md="ofertas_y_demandas.md"):
     con_web = [l for l in leads if "Tiene Web" in l.get("Oportunidad de Venta", "")]
     fecha = datetime.datetime.now().strftime("%Y-%m-%d")
 
-    contenido = f"""# 💼 Catálogo Autónomo de Ofertas y Demandas B2B
+    contenido = f"""# 💼 Catálogo de Ofertas y Demandas B2B (Listo para Monetizar)
 **Generado automáticamente por la Supercomputadora 24/7 en la Nube**  
 *Fecha de Análisis: {fecha} | Total de Empresas en la Base: {total}*
 
@@ -200,10 +199,10 @@ def generar_ofertas_y_demandas(leads, ruta_md="ofertas_y_demandas.md"):
 > 
 > * **Datos incluidos:** Nombre comercial, ciudad, dirección, teléfono directo de WhatsApp y correo verificado.
 > * **Entrega:** Formato Excel / CSV inmediato.
-> * **Inversión:** **45 € / $50 USD** (pago seguro vía PayPal).
+> * **Inversión:** **$45 USD** (pago con tarjeta o PayPal con protección al comprador).
 > 
-> Si deseas acceder al paquete completo, puedes adquirirlo directamente con entrega inmediata aquí:  
-> 👉 *[Pega tu enlace de PayPal Payment Link]*
+> Si deseas acceder al paquete completo con entrega inmediata, puedes adquirirlo aquí:  
+> 👉 **[Comprar Base de Datos Verificada ($45 USD)]({PAYPAL_PAYMENT_LINK})**
 > 
 > Saludos cordiales,  
 > **Ricardo Miranda - Inteligencia de Mercado B2B**
@@ -223,26 +222,26 @@ def generar_ofertas_y_demandas(leads, ruta_md="ofertas_y_demandas.md"):
 
 ## 📑 4. Primeras Empresas Calificadas con Oferta Asignada
 
-| Empresa | Ciudad | Teléfono | Demanda Detectada | Oferta Recomendada |
+| Empresa | Ciudad | Teléfono | Demanda Detectada | Enlace de Cobro Asignado |
 | :--- | :--- | :--- | :--- | :--- |
 """
 
     for l in leads[:15]:
-        oferta = "Propuesta Web Express (350€)" if "Sin Sitio Web" in l.get("Oportunidad de Venta", "") else "Paquete Captación Leads (150€)"
         demanda = l.get("Tipo de Demanda", "Desarrollo / Captación")
         tel = l.get("Teléfono", "No especificado")
         ciudad = l.get("Ciudad", "España")
-        contenido += f"| **{l.get('Nombre', '')}** | {ciudad} | `{tel}` | {demanda} | {oferta} |\n"
+        contenido += f"| **{l.get('Nombre', '')}** | {ciudad} | `{tel}` | {demanda} | [Pagar $45 USD]({PAYPAL_PAYMENT_LINK}) |\n"
 
-    contenido += """
+    contenido += f"""
 ---
+*Enlace Oficial de Cobro Directo: [{PAYPAL_PAYMENT_LINK}]({PAYPAL_PAYMENT_LINK})*  
 *Generado automáticamente por Supercomputadora LeadBot 24/7 en la nube de GitHub Actions.*
 """
 
     with open(ruta_md, mode="w", encoding="utf-8") as f:
         f.write(contenido)
 
-    print(f"[+] Catálogo de Ofertas y Demandas actualizado: {ruta_md}")
+    print(f"[+] Catálogo de Ofertas y Demandas actualizado con tu enlace de PayPal: {ruta_md}")
 
 if __name__ == "__main__":
     print("==========================================================")
