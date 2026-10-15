@@ -1,10 +1,13 @@
 #!/usr/bin/env python3
 """
 ==============================================================================
-ROBOT AUTÓNOMO 24/7 - EXTRACTOR DE LEADS INMOBILIARIOS EN ESPAÑA
+ROBOT AUTÓNOMO 24/7 - EXTRACTOR CUMULATIVO Y GENERADOR DE OFERTAS COMERCIALES
 ==============================================================================
 Ejecución autónoma programada en la nube (GitHub Actions).
-Extrae agencias inmobiliarias reales en España con teléfonos, emails y webs.
+1. Acumula y deduplica leads día a día sin perder datos previos.
+2. Extrae agencias inmobiliarias en España (Madrid, Barcelona, Valencia, etc.).
+3. Analiza la demanda y genera automáticamente ofertas y cartas de venta listas
+   para enviar por WhatsApp, Correo o LinkedIn con enlaces de cobro PayPal.
 """
 
 import urllib.request
@@ -13,26 +16,41 @@ import json
 import csv
 import datetime
 import time
+import os
 
-CIUDADES = ["Madrid", "Barcelona", "Valencia", "Sevilla", "Málaga", "Zaragoza"]
+CIUDADES = ["Madrid", "Barcelona", "Valencia", "Sevilla", "Málaga", "Bilbao"]
 
-# Servidores espejo para evitar caídas o timeouts
 OVERPASS_SERVERS = [
     "https://overpass-api.de/api/interpreter",
-    "https://overpass.kumi.systems/api/interpreter",
-    "https://lz4.overpass-api.de/api/interpreter"
+    "https://lz4.overpass-api.de/api/interpreter",
+    "https://overpass.kumi.systems/api/interpreter"
 ]
+
+def cargar_leads_existentes(ruta_archivo="leads_inmobiliarias_espana.csv"):
+    """Carga los leads acumulados de ejecuciones anteriores."""
+    if not os.path.exists(ruta_archivo):
+        return []
+    leads = []
+    try:
+        with open(ruta_archivo, mode="r", encoding="utf-8-sig") as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                if row.get("Nombre"):
+                    leads.append(row)
+    except Exception as e:
+        print(f"[-] Nota: Iniciando base nueva ({e})")
+    return leads
 
 def extraer_leads_ciudad(ciudad):
     """Consulta Overpass con rotación de servidores y reintentos."""
     query = f"""
-    [out:json][timeout:30];
+    [out:json][timeout:25];
     area["name"="{ciudad}"]["admin_level"~"8|6|4"]->.area_busqueda;
     (
       node["office"="estate_agent"](area.area_busqueda);
       way["office"="estate_agent"](area.area_busqueda);
     );
-    out center 70 tags;
+    out center 50 tags;
     """
     data = urllib.parse.urlencode({"data": query}).encode("utf-8")
 
@@ -43,22 +61,24 @@ def extraer_leads_ciudad(ciudad):
                 data=data, 
                 headers={"User-Agent": "LeadBot-Supercloud/2.0 (contact: info@supercloud.local)"}
             )
-            with urllib.request.urlopen(req, timeout=35) as response:
+            with urllib.request.urlopen(req, timeout=30) as response:
                 res_json = json.loads(response.read().decode("utf-8"))
                 elementos = res_json.get("elements", [])
                 if elementos:
                     print(f"[+] {ciudad}: {len(elementos)} inmobiliarias extraídas con éxito.")
                     return elementos
-        except Exception as e:
-            # Reintentar en siguiente servidor
+        except Exception:
             time.sleep(1)
             continue
             
-    print(f"[-] {ciudad}: Servidores ocupados, pasando a siguiente ciudad.")
+    print(f"[-] {ciudad}: Servidores ocupados, se reintentará en el próximo ciclo.")
     return []
 
 def procesar_leads():
-    total_leads = []
+    leads_previos = cargar_leads_existentes()
+    print(f"[*] Base de datos previa: {len(leads_previos)} leads cargados.")
+
+    nuevos_leads = []
     fecha_hoy = datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
 
     for ciudad in CIUDADES:
@@ -74,13 +94,15 @@ def procesar_leads():
             email = tags.get("email") or tags.get("contact:email") or "No especificado"
             web = tags.get("website") or tags.get("contact:website") or ""
             
-            # Clasificación de oportunidad comercial
+            # Clasificación de demanda
             if not web or web == "No especificado":
                 estado_web = "OPORTUNIDAD ALTA (Sin Sitio Web)"
                 web_link = "Sin Web"
+                tipo_demanda = "Necesita Desarrollo Web / Presencia Digital"
             else:
                 estado_web = "Cliente Potencial (Tiene Web)"
                 web_link = web
+                tipo_demanda = "Necesita Captación de Propietarios / Tráfico"
 
             calle = tags.get("addr:street", "")
             numero = tags.get("addr:housenumber", "")
@@ -89,7 +111,7 @@ def procesar_leads():
             if not direccion:
                 direccion = "Centro Urbano"
 
-            total_leads.append({
+            nuevos_leads.append({
                 "Nombre": nombre,
                 "Ciudad": ciudad,
                 "Dirección": direccion,
@@ -98,33 +120,134 @@ def procesar_leads():
                 "Email": email,
                 "Sitio Web": web_link,
                 "Oportunidad de Venta": estado_web,
+                "Tipo de Demanda": tipo_demanda,
                 "Fecha de Registro": fecha_hoy
             })
         time.sleep(1)
 
-    return total_leads
+    # Consolidar y deduplicar por (Nombre + Ciudad)
+    registro_map = {}
+    for l in leads_previos:
+        clave = (l.get("Nombre", "").strip().lower(), l.get("Ciudad", "").strip().lower())
+        registro_map[clave] = l
+
+    agregados = 0
+    for l in nuevos_leads:
+        clave = (l.get("Nombre", "").strip().lower(), l.get("Ciudad", "").strip().lower())
+        if clave not in registro_map:
+            registro_map[clave] = l
+            agregados += 1
+
+    total_consolidados = list(registro_map.values())
+    print(f"[+] Nuevos leads incorporados hoy: {agregados}. Total acumulado: {len(total_consolidados)}.")
+    return total_consolidados
 
 def exportar_csv(leads, ruta_archivo="leads_inmobiliarias_espana.csv"):
     if not leads:
-        print("[-] No se recopilaron leads en esta ejecución.")
+        print("[-] No hay leads para exportar.")
         return
 
     campos = [
         "Nombre", "Ciudad", "Dirección", "Código Postal",
-        "Teléfono", "Email", "Sitio Web", "Oportunidad de Venta", "Fecha de Registro"
+        "Teléfono", "Email", "Sitio Web", "Oportunidad de Venta", 
+        "Tipo de Demanda", "Fecha de Registro"
     ]
 
     with open(ruta_archivo, mode="w", newline="", encoding="utf-8-sig") as f:
         writer = csv.DictWriter(f, fieldnames=campos)
         writer.writeheader()
         for row in leads:
-            writer.writerow(row)
+            # Asegurar compatibilidad de campos
+            clean_row = {c: row.get(c, "No especificado") for c in campos}
+            writer.writerow(clean_row)
 
-    print(f"\n==========================================================")
-    print(f" [!] TOTAL CONSOLIDADO: {len(leads)} LEADS LISTOS PARA MONETIZAR")
-    print(f" Archivo guardado en: {ruta_archivo}")
-    print(f"==========================================================")
+    print(f"[+] Base de datos CSV consolidada: {ruta_archivo}")
+
+def generar_ofertas_y_demandas(leads, ruta_md="ofertas_y_demandas.md"):
+    """Genera automáticamente cartas de venta y propuestas comerciales listas para monetizar."""
+    if not leads:
+        return
+
+    total = len(leads)
+    sin_web = [l for l in leads if "Sin Sitio Web" in l.get("Oportunidad de Venta", "")]
+    con_web = [l for l in leads if "Tiene Web" in l.get("Oportunidad de Venta", "")]
+    fecha = datetime.datetime.now().strftime("%Y-%m-%d")
+
+    contenido = f"""# 💼 Catálogo Autónomo de Ofertas y Demandas B2B
+**Generado automáticamente por la Supercomputadora 24/7 en la Nube**  
+*Fecha de Análisis: {fecha} | Total de Empresas en la Base: {total}*
+
+---
+
+## 📊 1. Resumen Ejecutivo de la Demanda de Mercado
+* **Inmobiliarias Analizadas:** {total} agencias en España.
+* **Demanda de Sitios Web / Modernización:** {len(sin_web)} agencias ({len(sin_web)*100//total if total else 0}% del mercado analizado no tienen web propia).
+* **Demanda de Clientes y Prospección:** {len(con_web)} agencias con presencia digital que compiten por captar nuevos inmuebles.
+
+---
+
+## 🎯 2. Oferta Principal: Paquete de Datos para Venta a Agencias de Marketing
+*(Copia y pega este mensaje para vender la lista completa a agencias de marketing en España vía LinkedIn o Correo)*
+
+> **Asunto:** Base de datos verificada de inmobiliarias en España (Segmentadas por necesidad web)
+> 
+> **Mensaje:**
+> Hola [Nombre del Contacto / Director de Agencia],
+> 
+> Hemos completado un escaneo exhaustivo del sector inmobiliario en España y consolidamos una base de datos con **{total} agencias inmobiliarias activas**.
+> 
+> **Lo más valioso:** Incluye **{len(sin_web)} inmobiliarias que operan sin página web**, ideales para ofrecerles servicios de diseño web express, embudos de venta y automatización de citas.
+> 
+> * **Datos incluidos:** Nombre comercial, ciudad, dirección, teléfono directo de WhatsApp y correo verificado.
+> * **Entrega:** Formato Excel / CSV inmediato.
+> * **Inversión:** **45 € / $50 USD** (pago seguro vía PayPal).
+> 
+> Si deseas acceder al paquete completo, puedes adquirirlo directamente con entrega inmediata aquí:  
+> 👉 *[Pega tu enlace de PayPal Payment Link]*
+> 
+> Saludos cordiales,  
+> **Ricardo Miranda - Inteligencia de Mercado B2B**
+
+---
+
+## 📱 3. Ofertas Directas para Contacto por WhatsApp / Teléfono
+*(Mensajes listos para contactar individualmente a las inmobiliarias que no tienen web)*
+
+### Mensaje Tipo A (Para inmobiliarias sin página web):
+> *"Hola equipo de **[Nombre Inmobiliaria]**, estuve viendo sus excelentes propiedades en **[Ciudad]**. Noté que actualmente no disponen de un catálogo web propio donde los compradores puedan filtrar por zona y enviarles consultas directas a su WhatsApp. Ayudamos a agencias locales a tener su portal inmobiliario listo en 48 horas. ¿Les interesaría ver una maqueta de ejemplo sin costo? Un saludo."*
+
+### Mensaje Tipo B (Para inmobiliarias con página web - Venta de Leads):
+> *"Estimado equipo de **[Nombre Inmobiliaria]**, les contacto porque realizamos análisis de demanda habitacional en **[Ciudad]**. Hemos detectado una alta búsqueda de pisos en su zona y tenemos una lista de propietarios interesados en tasar inmuebles este mes. ¿Tienen capacidad comercial para captar nuevas propiedades? Quedo a su disposición."*
+
+---
+
+## 📑 4. Primeras Empresas Calificadas con Oferta Asignada
+
+| Empresa | Ciudad | Teléfono | Demanda Detectada | Oferta Recomendada |
+| :--- | :--- | :--- | :--- | :--- |
+"""
+
+    for l in leads[:15]:
+        oferta = "Propuesta Web Express (350€)" if "Sin Sitio Web" in l.get("Oportunidad de Venta", "") else "Paquete Captación Leads (150€)"
+        demanda = l.get("Tipo de Demanda", "Desarrollo / Captación")
+        tel = l.get("Teléfono", "No especificado")
+        ciudad = l.get("Ciudad", "España")
+        contenido += f"| **{l.get('Nombre', '')}** | {ciudad} | `{tel}` | {demanda} | {oferta} |\n"
+
+    contenido += """
+---
+*Generado automáticamente por Supercomputadora LeadBot 24/7 en la nube de GitHub Actions.*
+"""
+
+    with open(ruta_md, mode="w", encoding="utf-8") as f:
+        f.write(contenido)
+
+    print(f"[+] Catálogo de Ofertas y Demandas actualizado: {ruta_md}")
 
 if __name__ == "__main__":
+    print("==========================================================")
+    print("      INICIANDO ROBOT DE MONETIZACIÓN B2B EN LA NUBE      ")
+    print("==========================================================")
     leads = procesar_leads()
     exportar_csv(leads)
+    generar_ofertas_y_demandas(leads)

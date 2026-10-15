@@ -1,11 +1,8 @@
 name: Supercomputadora LeadBot 24/7
 
 on:
-  # Se ejecuta automáticamente todos los días a las 05:00 UTC (02:00 AM Argentina)
-  # mientras tu ordenador personal está completamente apagado
   schedule:
     - cron: '0 5 * * *'
-  # Permite que lo enciendas manualmente cuando quieras con un solo clic en GitHub
   workflow_dispatch:
 
 permissions:
@@ -24,19 +21,21 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: 🚀 Ejecutar Robot Extractor de Leads
+      - name: 🚀 Ejecutar Robot Extractor y Generador de Ofertas
         run: |
           python scraper.py
 
-      - name: 💾 Guardar y Actualizar Lista en el Repositorio
+      - name: 💾 Guardar y Actualizar Leads y Ofertas en el Repositorio
         run: |
           git config --global user.name "Supercloud-LeadBot"
           git config --global user.email "bot@supercloud.local"
-          git add leads_inmobiliarias_espana.csv
-          git diff --quiet && git diff --staged --quiet || (git commit -m "Actualizacion automatica 24/7 de leads [$(date -u +'%Y-%m-%d %H:%M')]" && git push)
+          git add leads_inmobiliarias_espana.csv ofertas_y_demandas.md
+          git diff --quiet && git diff --staged --quiet || (git commit -m "Actualizacion automatica 24/7 de leads y ofertas [$(date -u +'%Y-%m-%d %H:%M')]" && git push)
 
-      - name: 📦 Generar Archivo Descargable (Artefacto)
+      - name: 📦 Generar Archivos Descargables (Artefactos)
         uses: actions/upload-artifact@v4
         with:
-          name: leads-inmobiliarias-espana
-          path: leads_inmobiliarias_espana.csv
+          name: paquete-leads-y-ofertas
+          path: |
+            leads_inmobiliarias_espana.csv
+            ofertas_y_demandas.md
