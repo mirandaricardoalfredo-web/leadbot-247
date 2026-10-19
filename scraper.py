@@ -6,8 +6,9 @@ ROBOT AUTÓNOMO 24/7 - EXTRACTOR CUMULATIVO Y GENERADOR DE OFERTAS COMERCIALES
 Ejecución autónoma programada en la nube (GitHub Actions).
 1. Acumula y deduplica leads día a día sin perder datos previos.
 2. Extrae agencias inmobiliarias en España (Madrid, Barcelona, Valencia, etc.).
-3. Genera automáticamente ofertas y propuestas comerciales con enlace directo
-   a tu pasarela de cobro PayPal oficial en dólares (US$ 45,00).
+3. Genera automáticamente ofertas comerciales con dos niveles de precio en PayPal:
+   - Pack Express ($15 USD) - Compra impulsiva instantánea.
+   - Base Completa ($45 USD) - Acceso a toda la base consolidada.
 """
 
 import urllib.request
@@ -20,8 +21,9 @@ import os
 
 CIUDADES = ["Madrid", "Barcelona", "Valencia", "Sevilla", "Málaga", "Bilbao"]
 
-# Tu enlace oficial de cobro en PayPal ($45 USD)
-PAYPAL_PAYMENT_LINK = "https://www.paypal.com/ncp/payment/BKT7UTA7HA5QS"
+# Tus enlaces oficiales de cobro en PayPal
+PAYPAL_FULL_LINK = "https://www.paypal.com/ncp/payment/BKT7UTA7HA5QS"    # $45 USD (Base Completa)
+PAYPAL_FLASH_LINK = "https://www.paypal.com/ncp/payment/EL9K2AXW6CDVG"   # $15 USD (Pack Express 50)
 
 OVERPASS_SERVERS = [
     "https://overpass-api.de/api/interpreter",
@@ -185,44 +187,49 @@ def generar_ofertas_y_demandas(leads, ruta_md="ofertas_y_demandas.md"):
 
 ---
 
-## 🎯 2. Oferta Principal: Paquete de Datos para Venta a Agencias de Marketing
-*(Copia y pega este mensaje para vender la lista completa a agencias de marketing en España vía LinkedIn o Correo)*
+## ⚡ 2. OFERTA FLASH RELÁMPAGO: Pack Express 50 Inmobiliarias ($15 USD)
+*(Copia y pega este mensaje ultra corto para ventas instantáneas)*
 
-> **Asunto:** Base de datos verificada de inmobiliarias en España (Segmentadas por necesidad web)
+> **Asunto:** Pack Express: 50 inmobiliarias en España que operan sin web para tu equipo comercial
 > 
 > **Mensaje:**
-> Hola [Nombre del Contacto / Director de Agencia],
+> Hola, he consolidado un listado verificado de **50 agencias inmobiliarias activas en España (Madrid y Barcelona) que actualmente no tienen web propia ni catálogo digital**.
 > 
-> Hemos completado un escaneo exhaustivo del sector inmobiliario en España y consolidamos una base de datos con **{total} agencias inmobiliarias activas**.
+> Ideal para ofrecerles diseño web express y automatización de captación.
 > 
-> **Lo más valioso:** Incluye **{len(sin_web)} inmobiliarias que operan sin página web**, ideales para ofrecerles servicios de diseño web express, embudos de venta y automatización de citas.
+> * **Datos:** Nombre comercial, ciudad, teléfono directo verificado y dirección.
+> * **Entrega:** Excel / CSV inmediato.
+> * **Precio Especial Express:** **$15 USD**
 > 
-> * **Datos incluidos:** Nombre comercial, ciudad, dirección, teléfono directo de WhatsApp y correo verificado.
-> * **Entrega:** Formato Excel / CSV inmediato.
-> * **Inversión:** **$45 USD** (pago con tarjeta o PayPal con protección al comprador).
-> 
-> Si deseas acceder al paquete completo con entrega inmediata, puedes adquirirlo aquí:  
-> 👉 **[Comprar Base de Datos Verificada ($45 USD)]({PAYPAL_PAYMENT_LINK})**
+> Puedes descargarlo al instante con entrega directa aquí:  
+> 👉 **[Comprar Pack Express ($15 USD)]({PAYPAL_FLASH_LINK})**
 > 
 > Saludos cordiales,  
-> **Ricardo Miranda - Inteligencia de Mercado B2B**
+> **Ricardo Miranda - Inteligencia Comercial B2B**
 
 ---
 
-## 📱 3. Ofertas Directas para Contacto por WhatsApp / Teléfono
-*(Mensajes listos para contactar individualmente a las inmobiliarias que no tienen web)*
+## 🎯 3. OFERTA COMPLETA: Base Consolidada de {total} Inmobiliarias ($45 USD)
 
-### Mensaje Tipo A (Para inmobiliarias sin página web):
-> *"Hola equipo de **[Nombre Inmobiliaria]**, estuve viendo sus excelentes propiedades en **[Ciudad]**. Noté que actualmente no disponen de un catálogo web propio donde los compradores puedan filtrar por zona y enviarles consultas directas a su WhatsApp. Ayudamos a agencias locales a tener su portal inmobiliario listo en 48 horas. ¿Les interesaría ver una maqueta de ejemplo sin costo? Un saludo."*
-
-### Mensaje Tipo B (Para inmobiliarias con página web - Venta de Leads):
-> *"Estimado equipo de **[Nombre Inmobiliaria]**, les contacto porque realizamos análisis de demanda habitacional en **[Ciudad]**. Hemos detectado una alta búsqueda de pisos en su zona y tenemos una lista de propietarios interesados en tasar inmuebles este mes. ¿Tienen capacidad comercial para captar nuevas propiedades? Quedo a su disposición."*
+> **Asunto:** Base de datos verificada de {total} inmobiliarias en España (Segmentadas por necesidad web)
+> 
+> **Mensaje:**
+> Hola, tenemos disponible la base de datos completa con **{total} agencias inmobiliarias activas en España**, incluyendo **{len(sin_web)} agencias sin web**.
+> 
+> * **Entrega:** Archivo completo Excel / CSV.
+> * **Inversión:** **$45 USD**
+> 
+> Puedes adquirir el paquete completo aquí:  
+> 👉 **[Comprar Base Completa ($45 USD)]({PAYPAL_FULL_LINK})**
+> 
+> Saludos,  
+> **Ricardo Miranda**
 
 ---
 
 ## 📑 4. Primeras Empresas Calificadas con Oferta Asignada
 
-| Empresa | Ciudad | Teléfono | Demanda Detectada | Enlace de Cobro Asignado |
+| Empresa | Ciudad | Teléfono | Demanda Detectada | Enlace de Compra Rápida |
 | :--- | :--- | :--- | :--- | :--- |
 """
 
@@ -230,18 +237,19 @@ def generar_ofertas_y_demandas(leads, ruta_md="ofertas_y_demandas.md"):
         demanda = l.get("Tipo de Demanda", "Desarrollo / Captación")
         tel = l.get("Teléfono", "No especificado")
         ciudad = l.get("Ciudad", "España")
-        contenido += f"| **{l.get('Nombre', '')}** | {ciudad} | `{tel}` | {demanda} | [Pagar $45 USD]({PAYPAL_PAYMENT_LINK}) |\n"
+        contenido += f"| **{l.get('Nombre', '')}** | {ciudad} | `{tel}` | {demanda} | [Comprar Pack $15]({PAYPAL_FLASH_LINK}) |\n"
 
     contenido += f"""
 ---
-*Enlace Oficial de Cobro Directo: [{PAYPAL_PAYMENT_LINK}]({PAYPAL_PAYMENT_LINK})*  
+*Pasarela Flash ($15 USD): [{PAYPAL_FLASH_LINK}]({PAYPAL_FLASH_LINK})*  
+*Pasarela Completa ($45 USD): [{PAYPAL_FULL_LINK}]({PAYPAL_FULL_LINK})*  
 *Generado automáticamente por Supercomputadora LeadBot 24/7 en la nube de GitHub Actions.*
 """
 
     with open(ruta_md, mode="w", encoding="utf-8") as f:
         f.write(contenido)
 
-    print(f"[+] Catálogo de Ofertas y Demandas actualizado con tu enlace de PayPal: {ruta_md}")
+    print(f"[+] Catálogo de Ofertas y Demandas actualizado con ambos enlaces: {ruta_md}")
 
 if __name__ == "__main__":
     print("==========================================================")
