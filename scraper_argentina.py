@@ -6,8 +6,8 @@ ROBOT AUTÓNOMO 24/7 - EXTRACTOR DE GASTRONOMÍA Y MENÚS DIGITALES (ARGENTINA)
 Ejecución autónoma en la nube (GitHub Actions).
 1. Extrae rotiserías, pizzerías, bares y restaurantes en Argentina.
 2. Identifica locales con números de WhatsApp/teléfono.
-3. Genera enlaces directos de WhatsApp ('wa.me') listos para enviar propuestas
-   de Menú QR por $8.000 - $12.000 ARS con cobro por Mercado Pago.
+3. Genera enlaces directos de WhatsApp ('wa.me') con mensajes pre-redactados
+   y datos de cobro oficiales de Mercado Pago (Alias y CVU).
 """
 
 import urllib.request
@@ -17,6 +17,12 @@ import csv
 import datetime
 import time
 import os
+
+# Datos Oficiales de Cobro de Mercado Pago
+TITULAR_MP = "Ricardo Alfredo Miranda"
+ALIAS_MP = "aleado.copos.vial.mp"
+CVU_MP = "0000003100096829377816"
+PRECIO_MENU_ARS = "$8.000 ARS"
 
 ZONAS_ARGENTINA = [
     {"ciudad": "Cordoba", "bbox": "(-31.45,-64.25,-31.35,-64.15)"},
@@ -63,7 +69,7 @@ def extraer_locales_zona(zona):
             req = urllib.request.Request(
                 servidor, 
                 data=data, 
-                headers={"User-Agent": "ArgenBot-Supercloud/1.0 (contact: info@supercloud.local)"}
+                headers={"User-Agent": "ArgenBot-Supercloud/2.0 (contact: info@supercloud.local)"}
             )
             with urllib.request.urlopen(req, timeout=30) as response:
                 res_json = json.loads(response.read().decode("utf-8"))
@@ -104,7 +110,16 @@ def procesar_gastronomia():
             if not wa_num.startswith("54"):
                 wa_num = "549" + wa_num
 
-            wa_link = f"https://wa.me/{wa_num}" if len(wa_num) >= 10 else "Sin WhatsApp"
+            # Generar texto codificado para el enlace de WhatsApp
+            mensaje_wa = (
+                f"Hola buenas tardes equipo de {nombre}! Estuve viendo su local en {zona['ciudad']}. "
+                f"Me dedico al armado de Menús Digitales interactivos con Código QR para mesas y mostrador, "
+                f"listos para que sus clientes escaneen y pidan directo por WhatsApp sin cartas de papel. "
+                f"Se los dejo listo hoy mismo en 1 hora por solo {PRECIO_MENU_ARS} (Datos de transferencia: Alias: {ALIAS_MP} | Titular: {TITULAR_MP}). "
+                f"¿Les gustaría ver una muestra rápida sin compromiso?"
+            )
+            mensaje_encoded = urllib.parse.quote(mensaje_wa)
+            wa_link = f"https://wa.me/{wa_num}?text={mensaje_encoded}" if len(wa_num) >= 10 else "Sin WhatsApp"
 
             nuevos_leads.append({
                 "Nombre": nombre,
@@ -117,7 +132,7 @@ def procesar_gastronomia():
             })
         time.sleep(1)
 
-    # Consolidar
+    # Consolidar y deduplicar
     registro_map = {}
     for l in leads_previos:
         clave = (l.get("Nombre", "").strip().lower(), l.get("Ciudad", "").strip().lower())
@@ -151,46 +166,49 @@ def generar_propuestas(leads, ruta_md="propuestas_whatsapp_argentina.md"):
 
     contenido = f"""# 🍕 Propuestas de Menú QR para Gastronomía (Argentina)
 **Generado automáticamente por la Supercomputadora 24/7 en la Nube**  
-*Fecha: {fecha} | Total Locales Detectados: {len(leads)} | Locales con WhatsApp Directo: {len(con_wa)}*
+*Fecha: {fecha} | Total Locales: {len(leads)} | Locales con WhatsApp Directo: {len(con_wa)}*
 
 ---
 
-## ⚡ Cómo Funciona (1 Clic):
-1. Haces clic en el enlace de WhatsApp del local.
-2. Se te abre la conversación directamente con el mensaje preescrito.
-3. Le das a Enviar.
-4. Cuando te digan que sí, te transfieren los **$8.000 a $10.000 ARS** directo a tu **CVU / Alias de Mercado Pago**.
+## 💳 Datos de Cobro Oficiales Integrados (Mercado Pago)
+* **Titular:** `{TITULAR_MP}`
+* **Alias:** `{ALIAS_MP}`
+* **CVU:** `{CVU_MP}`
+* **Precio del Servicio:** **{PRECIO_MENU_ARS}**
 
 ---
 
-## 📲 Mensaje Preconfigurado (Oferta Menú Digital $8.000 ARS):
-
-> *"Hola buenas tardes equipo de **[Nombre Local]**! Estuve viendo su local en **[Ciudad]**. Me dedico al armado de **Menús Digitales interactivos con Código QR** para imprimir en mesas y mostrador, listos para que los clientes escaneen y hagan pedidos directo por WhatsApp sin gastar en cartas de papel.*  
-> *Se los dejo listo hoy mismo en 1 hora por solo **$8.000 pesos** (se abona por transferencia de Mercado Pago al entregar).*  
-> *¿Les preparo una muestra rápida sin compromiso para que vean cómo queda?"*
+## ⚡ Cómo Contactar en 1 Clic:
+1. Haz clic en el enlace azul **[👉 Abrir WhatsApp y Enviar Mensaje]**.
+2. Se te abrirá la conversación de WhatsApp con el texto y tus datos de cobro ya escritos.
+3. Solo presionas el botón de enviar.
+4. Cuando confirmen, te transfieren los **{PRECIO_MENU_ARS}** directamente a tu Alias de Mercado Pago.
 
 ---
 
-## 📋 Lista de Locales Listos para Contactar Hoy
+## 📋 Lista de Locales con WhatsApp Directo
 
-| Local | Ciudad | Tipo | Dirección | Enviar WhatsApp Directo |
+| Local | Ciudad | Tipo | Dirección | Contactar Directo |
 | :--- | :--- | :--- | :--- | :--- |
 """
 
-    for l in con_wa[:20]:
+    for l in con_wa[:25]:
         nombre = l.get("Nombre", "")
         ciudad = l.get("Ciudad", "")
         wa_link = l.get("Link WhatsApp", "#")
-        contenido += f"| **{nombre}** | {ciudad} | {l.get('Tipo', '')} | {l.get('Dirección', '')} | [👉 Abrir WhatsApp]({wa_link}) |\n"
+        tipo = l.get("Tipo", "Gastronomía")
+        dir_local = l.get("Dirección", "Zona Comercial")
+        contenido += f"| **{nombre}** | {ciudad} | {tipo} | {dir_local} | [👉 Abrir WhatsApp y Enviar]({wa_link}) |\n"
 
-    contenido += """
+    contenido += f"""
 ---
+*Datos de Pago Oficiales: Alias `{ALIAS_MP}` | CVU `{CVU_MP}`*  
 *Generado automáticamente por Supercomputadora LeadBot en la nube de GitHub Actions.*
 """
 
     with open(ruta_md, mode="w", encoding="utf-8") as f:
         f.write(contenido)
-    print(f"[+] Archivo de propuestas generado: {ruta_md}")
+    print(f"[+] Archivo de propuestas actualizado con tu Alias y CVU: {ruta_md}")
 
 if __name__ == "__main__":
     print("[*] Iniciando escaneo gastronómico Argentina...")
