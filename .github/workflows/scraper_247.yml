@@ -1,4 +1,4 @@
-name: Supercomputadora LeadBot 24/7
+name: Supercomputadora LeadBot 24/7 (Dual: Internacional & Argentina)
 
 on:
   schedule:
@@ -21,21 +21,27 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: 🚀 Ejecutar Robot Extractor y Generador de Ofertas
+      - name: 🇪🇸 Ejecutar Motor Internacional (Inmobiliarias España - PayPal USD)
         run: |
           python scraper.py
 
-      - name: 💾 Guardar y Actualizar Leads y Ofertas en el Repositorio
+      - name: 🇦🇷 Ejecutar Motor Nacional (Gastronomía Argentina - Mercado Pago)
+        run: |
+          python scraper_argentina.py
+
+      - name: 💾 Guardar y Actualizar Bases de Datos en el Repositorio
         run: |
           git config --global user.name "Supercloud-LeadBot"
           git config --global user.email "bot@supercloud.local"
-          git add leads_inmobiliarias_espana.csv ofertas_y_demandas.md
-          git diff --quiet && git diff --staged --quiet || (git commit -m "Actualizacion automatica 24/7 de leads y ofertas [$(date -u +'%Y-%m-%d %H:%M')]" && git push)
+          git add -A
+          git diff --quiet && git diff --staged --quiet || (git commit -m "Actualizacion automatica 24/7 de leads y propuestas [$(date -u +'%Y-%m-%d %H:%M')]" && git push)
 
-      - name: 📦 Generar Archivos Descargables (Artefactos)
+      - name: 📦 Generar Paquete Descargable
         uses: actions/upload-artifact@v4
         with:
-          name: paquete-leads-y-ofertas
+          name: paquete-monetizacion-completo
           path: |
             leads_inmobiliarias_espana.csv
             ofertas_y_demandas.md
+            leads_gastronomia_argentina.csv
+            propuestas_whatsapp_argentina.md
