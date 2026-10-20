@@ -56,11 +56,11 @@ def extraer_locales_zona(zona):
     bbox = zona["bbox"]
     ciudad = zona["ciudad"]
     query = f"""
-    [out:json][timeout:25];
+    [out:json][timeout:15];
     (
       node["amenity"~"restaurant|fast_food|cafe"]{bbox};
     );
-    out 40 tags;
+    out 30 tags;
     """
     data = urllib.parse.urlencode({"data": query}).encode("utf-8")
 
@@ -71,17 +71,16 @@ def extraer_locales_zona(zona):
                 data=data, 
                 headers={"User-Agent": "ArgenBot-Supercloud/2.0 (contact: info@supercloud.local)"}
             )
-            with urllib.request.urlopen(req, timeout=30) as response:
+            with urllib.request.urlopen(req, timeout=18) as response:
                 res_json = json.loads(response.read().decode("utf-8"))
                 elementos = res_json.get("elements", [])
                 if elementos:
-                    print(f"[+] {ciudad}: {len(elementos)} locales gastronómicos encontrados.")
+                    print(f"[+] {ciudad}: {len(elementos)} locales encontrados.")
                     return elementos
         except Exception:
-            time.sleep(1)
             continue
             
-    print(f"[-] {ciudad}: Servidor ocupado temporalmente.")
+    print(f"[-] {ciudad}: Servidores ocupados, se reintentará en el próximo ciclo.")
     return []
 
 def procesar_gastronomia():
@@ -103,14 +102,12 @@ def procesar_gastronomia():
             numero = tags.get("addr:housenumber", "")
             direccion = f"{calle} {numero}".strip() or "Zona Comercial"
 
-            # Formatear número para WhatsApp si existe
             wa_num = "".join(filter(str.isdigit, telefono))
             if wa_num.startswith("0"):
                 wa_num = wa_num[1:]
             if not wa_num.startswith("54"):
                 wa_num = "549" + wa_num
 
-            # Generar texto codificado para el enlace de WhatsApp
             mensaje_wa = (
                 f"Hola buenas tardes equipo de {nombre}! Estuve viendo su local en {zona['ciudad']}. "
                 f"Me dedico al armado de Menús Digitales interactivos con Código QR para mesas y mostrador, "
@@ -130,9 +127,7 @@ def procesar_gastronomia():
                 "Link WhatsApp": wa_link,
                 "Fecha": fecha_hoy
             })
-        time.sleep(1)
 
-    # Consolidar y deduplicar
     registro_map = {}
     for l in leads_previos:
         clave = (l.get("Nombre", "").strip().lower(), l.get("Ciudad", "").strip().lower())
@@ -146,22 +141,18 @@ def procesar_gastronomia():
     return list(registro_map.values())
 
 def exportar_csv(leads, ruta_archivo="leads_gastronomia_argentina.csv"):
-    if not leads:
-        return
     campos = ["Nombre", "Ciudad", "Tipo", "Dirección", "Teléfono", "Link WhatsApp", "Fecha"]
     with open(ruta_archivo, mode="w", newline="", encoding="utf-8-sig") as f:
         writer = csv.DictWriter(f, fieldnames=campos)
         writer.writeheader()
-        for row in leads:
-            clean = {c: row.get(c, "") for c in campos}
-            writer.writerow(clean)
-    print(f"[+] Archivo CSV guardado: {ruta_archivo}")
+        if leads:
+            for row in leads:
+                clean = {c: row.get(c, "") for c in campos}
+                writer.writerow(clean)
+    print(f"[+] Base de datos CSV guardada: {ruta_archivo}")
 
 def generar_propuestas(leads, ruta_md="propuestas_whatsapp_argentina.md"):
-    if not leads:
-        return
-
-    con_wa = [l for l in leads if l.get("Link WhatsApp") != "Sin WhatsApp"]
+    con_wa = [l for l in leads if l.get("Link WhatsApp") != "Sin WhatsApp"] if leads else []
     fecha = datetime.datetime.now().strftime("%Y-%m-%d")
 
     contenido = f"""# 🍕 Propuestas de Menú QR para Gastronomía (Argentina)
@@ -192,13 +183,16 @@ def generar_propuestas(leads, ruta_md="propuestas_whatsapp_argentina.md"):
 | :--- | :--- | :--- | :--- | :--- |
 """
 
-    for l in con_wa[:25]:
-        nombre = l.get("Nombre", "")
-        ciudad = l.get("Ciudad", "")
-        wa_link = l.get("Link WhatsApp", "#")
-        tipo = l.get("Tipo", "Gastronomía")
-        dir_local = l.get("Dirección", "Zona Comercial")
-        contenido += f"| **{nombre}** | {ciudad} | {tipo} | {dir_local} | [👉 Abrir WhatsApp y Enviar]({wa_link}) |\n"
+    if con_wa:
+        for l in con_wa[:25]:
+            nombre = l.get("Nombre", "")
+            ciudad = l.get("Ciudad", "")
+            wa_link = l.get("Link WhatsApp", "#")
+            tipo = l.get("Tipo", "Gastronomía")
+            dir_local = l.get("Dirección", "Zona Comercial")
+            contenido += f"| **{nombre}** | {ciudad} | {tipo} | {dir_local} | [👉 Abrir WhatsApp y Enviar]({wa_link}) |\n"
+    else:
+        contenido += "| *Buscando comercios en la próxima ejecución* | - | - | - | - |\n"
 
     contenido += f"""
 ---
@@ -208,10 +202,9 @@ def generar_propuestas(leads, ruta_md="propuestas_whatsapp_argentina.md"):
 
     with open(ruta_md, mode="w", encoding="utf-8") as f:
         f.write(contenido)
-    print(f"[+] Archivo de propuestas actualizado con tu Alias y CVU: {ruta_md}")
+    print(f"[+] Archivo de propuestas generado: {ruta_md}")
 
 if __name__ == "__main__":
-    print("[*] Iniciando escaneo gastronómico Argentina...")
     leads = procesar_gastronomia()
     exportar_csv(leads)
     generar_propuestas(leads)

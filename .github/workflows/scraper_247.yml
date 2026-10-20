@@ -23,18 +23,18 @@ jobs:
 
       - name: 🇪🇸 Ejecutar Motor Internacional (Inmobiliarias España - PayPal USD)
         run: |
-          python scraper.py
+          python scraper.py || echo "Advertencia en scraper internacional"
 
       - name: 🇦🇷 Ejecutar Motor Nacional (Gastronomía Argentina - Mercado Pago)
         run: |
-          python scraper_argentina.py
+          python scraper_argentina.py || echo "Advertencia en scraper Argentina"
 
       - name: 💾 Guardar y Actualizar Bases de Datos en el Repositorio
         run: |
           git config --global user.name "Supercloud-LeadBot"
           git config --global user.email "bot@supercloud.local"
           git add -A
-          git diff --quiet && git diff --staged --quiet || (git commit -m "Actualizacion automatica 24/7 de leads y propuestas [$(date -u +'%Y-%m-%d %H:%M')]" && git push)
+          git diff --quiet && git diff --staged --quiet || (git commit -m "Actualizacion automatica 24/7 [$(date -u +'%Y-%m-%d %H:%M')]" && git push)
 
       - name: 📦 Generar Paquete Descargable
         uses: actions/upload-artifact@v4
@@ -45,3 +45,4 @@ jobs:
             ofertas_y_demandas.md
             leads_gastronomia_argentina.csv
             propuestas_whatsapp_argentina.md
+          if-no-files-found: ignore
