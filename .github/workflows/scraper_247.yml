@@ -7,6 +7,7 @@ on:
 
 permissions:
   contents: write
+  issues: write
 
 jobs:
   run-leadbot:
@@ -29,6 +30,11 @@ jobs:
         run: |
           python scraper_argentina.py
 
+      - name: 📊 Compilar Métricas y Generar Reporte Diario
+        run: |
+          python generar_reporte.py
+          cat REPORTE_DIARIO.md >> $GITHUB_STEP_SUMMARY
+
       - name: 💾 Guardar y Actualizar Bases de Datos en el Repositorio
         run: |
           git config --global user.name "Supercloud-LeadBot"
@@ -36,13 +42,21 @@ jobs:
           git add -A
           git diff --quiet && git diff --staged --quiet || (git commit -m "Actualizacion automatica 24/7 [$(date -u +'%Y-%m-%d %H:%M')]" && git push)
 
+      - name: 📧 Enviar Reporte a tu Correo (ricardoalfredomiranda@gmail.com)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh issue create --title "📊 Reporte Diario Supercomputadora [$(date +'%d/%m/%Y')]" --body-file REPORTE_DIARIO.md
+
       - name: 📦 Generar Paquete Descargable
         uses: actions/upload-artifact@v4
         with:
           name: paquete-monetizacion-completo
           path: |
+            REPORTE_DIARIO.md
             leads_inmobiliarias_espana.csv
             ofertas_y_demandas.md
             leads_gastronomia_argentina.csv
             propuestas_whatsapp_argentina.md
           if-no-files-found: ignore
+
