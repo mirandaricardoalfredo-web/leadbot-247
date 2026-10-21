@@ -1,4 +1,4 @@
-name: Supercomputadora LeadBot 24/7 (Dual: Internacional & Argentina)
+name: "Supercomputadora LeadBot 24/7"
 
 on:
   schedule:
@@ -23,11 +23,11 @@ jobs:
 
       - name: 🇪🇸 Ejecutar Motor Internacional (Inmobiliarias España - PayPal USD)
         run: |
-          python scraper.py || echo "Advertencia en scraper internacional"
+          python scraper.py
 
       - name: 🇦🇷 Ejecutar Motor Nacional (Gastronomía Argentina - Mercado Pago)
         run: |
-          python scraper_argentina.py || echo "Advertencia en scraper Argentina"
+          python scraper_argentina.py
 
       - name: 💾 Guardar y Actualizar Bases de Datos en el Repositorio
         run: |
