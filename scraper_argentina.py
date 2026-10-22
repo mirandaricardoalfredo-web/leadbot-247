@@ -24,13 +24,7 @@ ALIAS_MP = "aleado.copos.vial.mp"
 CVU_MP = "0000003100096829377816"
 PRECIO_MENU_ARS = "$8.000 ARS"
 
-ZONAS_ARGENTINA = [
-    {"ciudad": "Cordoba", "bbox": "(-31.45,-64.25,-31.35,-64.15)"},
-    {"ciudad": "Rosario", "bbox": "(-33.00,-60.72,-32.92,-60.62)"},
-    {"ciudad": "Mendoza", "bbox": "(-32.92,-68.88,-32.86,-68.80)"},
-    {"ciudad": "Buenos Aires", "bbox": "(-34.62,-58.46,-34.56,-58.36)"},
-    {"ciudad": "San Luis", "bbox": "(-33.32,-66.36,-33.27,-66.31)"}
-]
+CIUDADES_ARGENTINA = ["Buenos Aires", "Córdoba", "Rosario", "Mendoza", "San Luis", "Mar del Plata"]
 
 OVERPASS_SERVERS = [
     "https://overpass-api.de/api/interpreter",
@@ -52,15 +46,15 @@ def cargar_leads_existentes(ruta_archivo="leads_gastronomia_argentina.csv"):
         pass
     return leads
 
-def extraer_locales_zona(zona):
-    bbox = zona["bbox"]
-    ciudad = zona["ciudad"]
+def extraer_locales_ciudad(ciudad):
     query = f"""
-    [out:json][timeout:15];
+    [out:json][timeout:30];
+    area["name"="{ciudad}"]->.area_busqueda;
     (
-      node["amenity"~"restaurant|fast_food|cafe"]{bbox};
+      node["amenity"~"restaurant|fast_food|cafe|bar|pub"](area.area_busqueda);
+      way["amenity"~"restaurant|fast_food|cafe|bar|pub"](area.area_busqueda);
     );
-    out 30 tags;
+    out center 40 tags;
     """
     data = urllib.parse.urlencode({"data": query}).encode("utf-8")
 
@@ -71,13 +65,14 @@ def extraer_locales_zona(zona):
                 data=data, 
                 headers={"User-Agent": "ArgenBot-Supercloud/2.0 (contact: info@supercloud.local)"}
             )
-            with urllib.request.urlopen(req, timeout=18) as response:
+            with urllib.request.urlopen(req, timeout=30) as response:
                 res_json = json.loads(response.read().decode("utf-8"))
                 elementos = res_json.get("elements", [])
                 if elementos:
-                    print(f"[+] {ciudad}: {len(elementos)} locales encontrados.")
+                    print(f"[+] {ciudad}: {len(elementos)} locales encontrados con éxito.")
                     return elementos
         except Exception:
+            time.sleep(1)
             continue
             
     print(f"[-] {ciudad}: Servidores ocupados, se reintentará en el próximo ciclo.")
@@ -88,8 +83,9 @@ def procesar_gastronomia():
     nuevos_leads = []
     fecha_hoy = datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
 
-    for zona in ZONAS_ARGENTINA:
-        elementos = extraer_locales_zona(zona)
+    for ciudad in CIUDADES_ARGENTINA:
+        print(f"[*] Escaneando gastronomía en: {ciudad}...")
+        elementos = extraer_locales_ciudad(ciudad)
         for elem in elementos:
             tags = elem.get("tags", {})
             nombre = tags.get("name")
@@ -109,7 +105,7 @@ def procesar_gastronomia():
                 wa_num = "549" + wa_num
 
             mensaje_wa = (
-                f"Hola buenas tardes equipo de {nombre}! Estuve viendo su local en {zona['ciudad']}. "
+                f"Hola buenas tardes equipo de {nombre}! Estuve viendo su local en {ciudad}. "
                 f"Me dedico al armado de Menús Digitales interactivos con Código QR para mesas y mostrador, "
                 f"listos para que sus clientes escaneen y pidan directo por WhatsApp sin cartas de papel. "
                 f"Se los dejo listo hoy mismo en 1 hora por solo {PRECIO_MENU_ARS} (Datos de transferencia: Alias: {ALIAS_MP} | Titular: {TITULAR_MP}). "
@@ -120,7 +116,7 @@ def procesar_gastronomia():
 
             nuevos_leads.append({
                 "Nombre": nombre,
-                "Ciudad": zona["ciudad"],
+                "Ciudad": ciudad,
                 "Tipo": tipo,
                 "Dirección": direccion,
                 "Teléfono": telefono or "No especificado",
