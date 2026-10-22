@@ -46,7 +46,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh issue create --title "📊 Reporte Diario Supercomputadora [$(date +'%d/%m/%Y')]" --body-file REPORTE_DIARIO.md
+          gh issue create --title "📊 Reporte Diario Supercomputadora [$(date +'%d/%m/%Y')]" --body-file REPORTE_DIARIO.md --assignee mirandaricardoalfredo-web
 
       - name: 📦 Generar Paquete Descargable
         uses: actions/upload-artifact@v4

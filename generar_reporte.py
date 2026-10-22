@@ -47,7 +47,7 @@ def generar():
     
     contenido = f"""# 📊 Reporte Diario de Operaciones - Supercomputadora 24/7
 
-**Destinatario:** Ricardo Alfredo Miranda (`ricardoalfredomiranda@gmail.com`)  
+**Destinatario:** @mirandaricardoalfredo-web (Ricardo Alfredo Miranda - `ricardoalfredomiranda@gmail.com`)  
 **Fecha de Ejecución:** {fecha_hoy} (Hora del Servidor en la Nube)  
 **Estado del Sistema:** 🟢 100% Operativo y Actualizado
 
